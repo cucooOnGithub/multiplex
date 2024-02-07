@@ -16,6 +16,10 @@ import subprocess
 import sys
 from subprocess import Popen, PIPE
 
+def has_positional_arguments(command):
+    return any("{" + str(i) + "}" in command for i in range(10))  # Check for placeholders {0} to {9}
+
+
 def process_input(input_lines, command):
     processed_lines = []
 
@@ -26,7 +30,14 @@ def process_input(input_lines, command):
             if line == '':
                 continue
 
-            command2 = (command + ' ' + line).split(' ')
+            arguments = line.split(' ')
+            command2=''
+
+            if has_positional_arguments(command):
+                command2 = command.format(*arguments).split(' ')            
+            else:
+                command2 = (command + ' ' + line).split(' ')
+  
             #print(command2)
             p = Popen(command2, stdin=PIPE, stdout=PIPE, stderr=PIPE)
             output, err = p.communicate(b"input data that is passed to subprocess' stdin")
