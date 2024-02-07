@@ -16,6 +16,12 @@ Example:
     cat list_of_ips.txt | multiplex "whois"
 ```
 
+If the list passed via stdin has multiple parameters, you can specify their order in the following manner:
+
+```
+    cat list_of_lines_with_multiple_params.txt | multiplex "somecommand --in={0} --out={1}"
+```
+
 # Output
 
 Outputs the result of applying the command to each line
@@ -36,7 +42,6 @@ microsoft.com
 20.70.246.20
 20.76.201.171
 20.231.239.246
-
 ```
 
 # Installation
