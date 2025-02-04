@@ -14,64 +14,72 @@
 #-------------------------------------------------------------------------------------
 import subprocess
 import sys
-from subprocess import Popen, PIPE
+import shlex
 
 def has_positional_arguments(command):
-    return any("{" + str(i) + "}" in command for i in range(10))  # Check for placeholders {0} to {9}
-
+    """Check if the command contains placeholders {0}, {1}, ..., {9}"""
+    return any("{" + str(i) + "}" in command for i in range(10))
 
 def process_input(input_lines, command):
+    """Process input lines and execute the command(s) accordingly"""
     processed_lines = []
+    
+    # Split multiple commands by ";"
+    commands = command.split(";")
 
-    for line in input_lines:
-        if command:
-            # Use subprocess to execute the specified command
-            line = line.strip()
-            if line == '':
-                continue
+    for cmd in commands:
+        cmd = cmd.strip()
+        if not cmd:
+            continue  # Skip empty commands
 
-            arguments = line.split(' ')
-            command2=''
+        # Check if the command needs input (i.e., contains {0}, {1}, etc.)
+        needs_input = has_positional_arguments(cmd)
 
-            if has_positional_arguments(command):
-                command2 = command.format(*arguments).split(' ')            
-            else:
-                command2 = (command + ' ' + line).split(' ')
-  
-            #print(command2)
-            p = Popen(command2, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-            output, err = p.communicate(b"input data that is passed to subprocess' stdin")
-            rc = p.returncode
+        if needs_input:
+            for line in input_lines:
+                line = line.strip()
+                if not line:
+                    continue  # Skip empty lines
 
+                arguments = line.split(" ")
+                command_to_execute = shlex.split(cmd.format(*arguments))
 
-            # Append both stdout and stderr to the processed lines
-            processed_lines.append(output)
-            processed_lines.append(err)
+                processed_lines.extend(run_command(command_to_execute, cmd))
         else:
-            # If no command is provided, pass the input line to the output without transformation
-            processed_lines.append(line)
+            # Execute command without appending input
+            command_to_execute = shlex.split(cmd)
+            processed_lines.extend(run_command(command_to_execute, cmd))
 
     return processed_lines
 
-if __name__ == "__main__":
-    # Check if the command-line argument is provided
-    if len(sys.argv) > 1:
-        # Get the command-line argument specifying the shell command
-        command = sys.argv[1]
-    else:
-        command = None
+def run_command(command_to_execute, cmd):
+    """Execute a shell command and return its output (stdout & stderr)"""
+    processed_output = []
+    try:
+        p = subprocess.Popen(command_to_execute, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        output, err = p.communicate()
 
-    # Read input lines from standard input
+        if output:
+            processed_output.append(output.decode())
+        if err:
+            processed_output.append(err.decode())
+
+    except Exception as e:
+        processed_output.append(f"Error executing command '{cmd}': {str(e)}\n")
+
+    return processed_output
+
+if __name__ == "__main__":
+    # Get command-line argument
+    command = sys.argv[1] if len(sys.argv) > 1 else None
+
+    # Read input lines from stdin
     input_lines = sys.stdin.readlines()
 
-    # Process the input lines using the specified command or pass through if no command is provided
+    # Process input lines and execute commands
     processed_lines = process_input(input_lines, command)
 
-    # Write the result to standard output
-    s = ''
-    for line in processed_lines:
-        if line != '':
-            s+= line.decode()
+    # Print the result to stdout
+    print("".join(processed_lines), flush=True)
 
-    # sys.stdout.writelines(s)
-    print(s, flush=True)
+
